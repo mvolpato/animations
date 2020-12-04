@@ -7,70 +7,67 @@
 
 import SwiftUI
 
-struct ContentView: View {
+struct CornerRotateModifier: ViewModifier {
+    let amount: Double
+    let anchor: UnitPoint
 
-    @State private var animationPulse: CGFloat = 1
-    @State private var animationAmount: CGFloat = 1
-    @State private var animationRotation = 0.0
+    func body(content: Content) -> some View {
+        content.rotationEffect(.degrees(amount), anchor: anchor).clipped()
+    }
+}
+
+extension AnyTransition {
+    static var pivot: AnyTransition {
+        .modifier(
+            active: CornerRotateModifier(amount: -90, anchor: .topLeading),
+            identity: CornerRotateModifier(amount: 0, anchor: .topLeading)
+        )
+    }
+}
+
+struct ContentView: View {
+    let letters = Array("Hello SwiftUI")
+    @State private var enabled = false
+    @State private var dragAmount = CGSize.zero
+    @State private var restingSpot = CGSize.zero
+
+    @State private var isShowing = false
 
     var body: some View {
-        VStack {
-            Spacer()
-            HStack {
-                Button("Reset") {
-                    self.animationAmount = 1
-                }
-                .padding(40)
-                .background(Color.red)
-                .foregroundColor(.white)
-                .clipShape(Circle())
-                .overlay(
-                    Circle()
-                        .stroke(Color.red)
-                        .scaleEffect(animationPulse)
-                        .opacity(Double(2 - animationPulse))
-                        .animation(
-                            Animation.easeOut(duration: 1)
-                                .repeatForever(autoreverses: false)
-                        )
-                )
-                .onAppear {
-                    self.animationPulse = 2
-                }
-                Button("Rotate") {
-                    withAnimation(.interpolatingSpring(stiffness: 5, damping: 1)) {
-                        self.animationRotation += 360
-                    }
-                }
-                .padding(50)
-                .background(Color.purple)
-                .foregroundColor(.white)
-                .clipShape(Circle())
-                .rotation3DEffect(.degrees(animationRotation), axis: (x: 0, y: 1, z: 0))
+        HStack(spacing: 0) {
+            ForEach(0..<letters.count) { num in
+                Text(String(self.letters[num]))
+                    .padding(5)
+                    .font(.title)
+                    .background(self.enabled ? Color.blue : Color.red)
+                    .offset(self.dragAmount)
+                    .animation(Animation.default.delay(Double(num) / 20))
             }
-            Spacer()
-            VStack {
-                Stepper("Scale amount", value: $animationAmount.animation(
-                    Animation.easeInOut(duration: 1)
-                        .repeatCount(3, autoreverses: true)
-                ), in: 1...3)
-
-                Spacer()
-                    .frame(height: 100)
-
-                Button("Grow") {
-                    self.animationAmount += 1
-                }
-                .padding(40)
-                .background(Color.blue)
-                .foregroundColor(.white)
-                .clipShape(Circle())
-                .scaleEffect(animationAmount)
-                //                .animation(.easeIn)
-            }
-            Spacer()
         }
-
+        .gesture(
+            DragGesture()
+                .onChanged {
+                    let newWidth = self.restingSpot.width + $0.translation.width
+                    let newHeight = self.restingSpot.height + $0.translation.height
+                    self.dragAmount = CGSize(width: newWidth, height: newHeight) }
+                .onEnded { _ in
+                    self.restingSpot = self.dragAmount
+                    self.enabled.toggle()
+                }
+        )
+        Spacer()
+        if isShowing {
+            Rectangle()
+                .fill(Color.red)
+                .frame(width: 200, height: 200)
+                .transition(.pivot)
+        }
+        Spacer()
+        Button(isShowing ? "Hide" : "Show") {
+            withAnimation {
+                self.isShowing.toggle()
+            }
+        }
     }
 }
 
